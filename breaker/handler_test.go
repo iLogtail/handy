@@ -13,7 +13,7 @@ func (h code) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestHandlerCircuitStaysClosedWithSingleError(t *testing.T) {
-	h := Handler(NewBreaker(0.05), DefaultStatusCodeValidator, code(500))
+	h := Handler(NewBreaker(WithFailureRatio(0.05)), DefaultStatusCodeValidator, code(500))
 
 	resp := httptest.NewRecorder()
 	req := &http.Request{
@@ -34,7 +34,7 @@ func TestHandlerCircuitOpenWith5PercentError(t *testing.T) {
 		w.WriteHeader(code)
 	})
 
-	h := Handler(NewBreaker(0.05), DefaultStatusCodeValidator, backend)
+	h := Handler(NewBreaker(WithFailureRatio(0.05)), DefaultStatusCodeValidator, backend)
 
 	for i := 1; i <= 100; i++ {
 		resp := httptest.NewRecorder()

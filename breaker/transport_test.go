@@ -13,7 +13,7 @@ func TestTransportCircuitStaysClosedWithSingleError(t *testing.T) {
 	defer s.Close()
 
 	c := http.Client{
-		Transport: Transport(NewBreaker(0.05), DefaultResponseValidator, http.DefaultTransport),
+		Transport: Transport(NewBreaker(WithFailureRatio(0.05)), DefaultResponseValidator, http.DefaultTransport),
 	}
 
 	c.Get(s.URL)
@@ -31,7 +31,7 @@ func TestTransportCircuitOpenWith5PercentError(t *testing.T) {
 	defer fail.Close()
 
 	c := http.Client{
-		Transport: Transport(NewBreaker(0.05), DefaultResponseValidator, http.DefaultTransport),
+		Transport: Transport(NewBreaker(WithFailureRatio(0.05)), DefaultResponseValidator, http.DefaultTransport),
 	}
 
 	var lastError error

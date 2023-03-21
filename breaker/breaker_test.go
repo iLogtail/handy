@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewBreakerAllows(t *testing.T) {
-	c := NewBreaker(0)
+	c := NewBreaker(WithFailureRatio(0))
 
 	if !c.Allow() {
 		t.Fatal("expected new breaker to be closed")
@@ -14,7 +14,7 @@ func TestNewBreakerAllows(t *testing.T) {
 }
 
 func TestBreakerSuccessClosesOpenBreaker(t *testing.T) {
-	b := NewBreaker(0)
+	b := NewBreaker(WithFailureRatio(0))
 
 	b.trip()
 
@@ -30,7 +30,7 @@ func TestBreakerSuccessClosesOpenBreaker(t *testing.T) {
 }
 
 func TestBreakerFailTripsBreakerWithASingleFailureAt0PrecentThreshold(t *testing.T) {
-	b := NewBreaker(0)
+	b := NewBreaker(WithFailureRatio(0))
 
 	for i := 0; i < 100; i++ {
 		b.Success(0)
@@ -46,7 +46,7 @@ func TestBreakerFailTripsBreakerWithASingleFailureAt0PrecentThreshold(t *testing
 func TestBreakerFailDoesNotTripBreakerAt1PrecentThreshold(t *testing.T) {
 	const threshold = 0.01
 
-	c := NewBreaker(threshold)
+	c := NewBreaker(WithFailureRatio(threshold))
 
 	for i := 0; i < 100-100*threshold; i++ {
 		c.Success(0)
@@ -148,10 +148,11 @@ func TestBreakerReschedulesOnFailureInHalfOpen(t *testing.T) {
 }
 
 func TestNewBreakerOptions(t *testing.T) {
-	c := NewBreaker(0)
-	c.WithCooldown(2 * time.Second)
-	c.WithMinObservation(30)
-	c.WithWindow(30 * time.Second)
+	c := NewBreaker(WithFailureRatio(0),
+		WithCooldown(2*time.Second),
+		WithMinObservation(30),
+		WithWindow(30*time.Second),
+	)
 
 	if c.config.Cooldown != 2*time.Second || c.config.MinObservations != 30 || c.config.Window != 30*time.Second {
 		t.Fatal("unexpected configuration values")

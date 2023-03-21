@@ -35,6 +35,36 @@ const (
 	halfopen
 )
 
+type BreakerOption func(c *breakerConfig)
+
+// WithMinObservation sets the mininum observation value
+func WithMinObservation(min uint) BreakerOption {
+	return func(c *breakerConfig) {
+		c.MinObservations = min
+	}
+}
+
+// WithWindow sets the observation window
+func WithWindow(w time.Duration) BreakerOption {
+	return func(c *breakerConfig) {
+		c.Window = w
+	}
+}
+
+// WithCooldown sets the cooldown time
+func WithCooldown(d time.Duration) BreakerOption {
+	return func(c *breakerConfig) {
+		c.Cooldown = d
+	}
+}
+
+// WithFailureRatio sets the failure ratio
+func WithFailureRatio(ratio float64) BreakerOption {
+	return func(c *breakerConfig) {
+		c.FailureRatio = ratio
+	}
+}
+
 type breaker struct {
 	force   chan states
 	allow   chan bool
@@ -55,7 +85,18 @@ type breakerConfig struct {
 	After func(time.Duration) <-chan time.Time // default time.After
 }
 
-func newBreaker(c breakerConfig) breaker {
+// NewBreaker constructs a new circuit breaker, initially closed. The breaker
+// opens after failureRatio failures per success, and only after
+// DefaultMinObservations have been made.
+func NewBreaker(ops ...BreakerOption) *breaker {
+	cfg := &breakerConfig{MinObservations: DefaultMinObservations}
+	for _, op := range ops {
+		op(cfg)
+	}
+	return newBreaker(*cfg)
+}
+
+func newBreaker(c breakerConfig) *breaker {
 	if c.FailureRatio < 0.0 {
 		c.FailureRatio = 0.0
 	}
@@ -80,7 +121,7 @@ func newBreaker(c breakerConfig) breaker {
 		c.After = time.After
 	}
 
-	b := breaker{
+	b := &breaker{
 		force:   make(chan states),
 		allow:   make(chan bool),
 		success: make(chan time.Duration),
@@ -93,32 +134,7 @@ func newBreaker(c breakerConfig) breaker {
 	return b
 }
 
-// NewBreaker constructs a new circuit breaker, initially closed. The breaker
-// opens after failureRatio failures per success, and only after
-// DefaultMinObservations have been made.
-func NewBreaker(failureRatio float64) breaker {
-	return newBreaker(breakerConfig{
-		MinObservations: DefaultMinObservations,
-		FailureRatio:    failureRatio,
-	})
-}
-
-// WithMinObservation sets the mininum observation value
-func (b *breaker) WithMinObservation(min uint) {
-	b.config.MinObservations = min
-}
-
-// WithWindow sets the observation window
-func (b *breaker) WithWindow(w time.Duration) {
-	b.config.Window = w
-}
-
-// WithCooldown sets the cooldown time
-func (b *breaker) WithCooldown(c time.Duration) {
-	b.config.Cooldown = c
-}
-
-func (b breaker) shouldOpen(m *metric) bool {
+func (b *breaker) shouldOpen(m *metric) bool {
 	s := m.Summary()
 	return s.total > b.config.MinObservations && s.rate > b.config.FailureRatio
 }
@@ -138,7 +154,7 @@ dot  halfopen -> tripped  [label="failed"]
 dot  halfopen -> tripped  [label="allowed one"]
 dot }
 */
-func (b breaker) run() {
+func (b *breaker) run() {
 	var (
 		state   states
 		timeout <-chan time.Time
@@ -198,28 +214,28 @@ func (b breaker) run() {
 // Success informs the circuit that a request to the underlying resource has
 // completed successfully. Every Allowed request should signal either Success
 // or Failure.
-func (b breaker) Success(d time.Duration) {
+func (b *breaker) Success(d time.Duration) {
 	b.success <- d
 }
 
 // Failure informs the circuit that a request to the underlying resource has
 // failed. Every Allowed request should signal either Success or Failure.
-func (b breaker) Failure(d time.Duration) {
+func (b *breaker) Failure(d time.Duration) {
 	b.failure <- d
 }
 
 // Allow returns true if a new request should be allowed to proceed to the
 // underlying resource.
-func (b breaker) Allow() bool {
+func (b *breaker) Allow() bool {
 	return <-b.allow
 }
 
 // Trip manually opens the circuit.
-func (b breaker) trip() {
+func (b *breaker) trip() {
 	b.force <- tripped
 }
 
 // Reset manually closes the circuit.
-func (b breaker) reset() {
+func (b *breaker) reset() {
 	b.force <- reset
 }
