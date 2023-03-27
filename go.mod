@@ -1,3 +1,3 @@
-module github.com/ilogtail/handy
+module github.com/streadway/handy
 
 go 1.18
